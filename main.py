@@ -193,6 +193,45 @@ def load_data(args, tasks):
 
     return train_queries, train_answers, valid_queries, valid_hard_answers, valid_easy_answers, test_queries, test_hard_answers, test_easy_answers
 
+
+def load_partial_data(args, tasks):
+    '''
+    Load queries and remove queries not in tasks
+    '''
+    logging.info("loading data")
+    train_queries = pickle.load(open(os.path.join(args.data_path, "train-queries.pkl"), 'rb'))
+    train_answers = pickle.load(open(os.path.join(args.data_path, "train-answers.pkl"), 'rb'))
+    valid_queries = pickle.load(open(os.path.join(args.data_path, "valid-queries.pkl"), 'rb'))
+    valid_hard_answers = pickle.load(open(os.path.join(args.data_path, "valid-hard-answers.pkl"), 'rb'))
+    valid_easy_answers = pickle.load(open(os.path.join(args.data_path, "valid-easy-answers.pkl"), 'rb'))
+    test_queries = pickle.load(open(os.path.join(args.data_path, "test-queries.pkl"), 'rb'))
+    test_hard_answers = pickle.load(open(os.path.join(args.data_path, "test-hard-answers.pkl"), 'rb'))
+    test_easy_answers = pickle.load(open(os.path.join(args.data_path, "test-easy-answers.pkl"), 'rb'))
+
+    # remove tasks not in args.tasks
+    for name in all_tasks:
+        if 'u' in name:
+            name, evaluate_union = name.split('-')
+        else:
+            evaluate_union = args.evaluate_union
+        if name not in tasks or evaluate_union != args.evaluate_union:
+            query_structure = name_query_dict[name if 'u' not in name else '-'.join([name, evaluate_union])]
+            if query_structure in train_queries:
+                del train_queries[query_structure]
+            if query_structure in valid_queries:
+                del valid_queries[query_structure]
+            if query_structure in test_queries:
+                del test_queries[query_structure]
+
+    partial_train_queries= {}
+    for query, query_list in train_queries.items():
+        partial_query_list = [item for index, item in enumerate(query_list) if index%100 == 0]
+        partial_train_queries[query] = partial_query_list
+
+
+    return partial_train_queries, train_answers, valid_queries, valid_hard_answers, valid_easy_answers, test_queries, test_hard_answers, test_easy_answers
+
+
 def main(args):
     set_global_seed(args.seed)
     tasks = args.tasks.split('.')
@@ -248,7 +287,7 @@ def main(args):
     logging.info('#max steps: %d' % args.max_steps)
     logging.info('Evaluate unoins using: %s' % args.evaluate_union)
 
-    train_queries, train_answers, valid_queries, valid_hard_answers, valid_easy_answers, test_queries, test_hard_answers, test_easy_answers = load_data(args, tasks)        
+    train_queries, train_answers, valid_queries, valid_hard_answers, valid_easy_answers, test_queries, test_hard_answers, test_easy_answers = load_partial_data(args, tasks)
 
     logging.info("Training info:")
     if args.do_train:
